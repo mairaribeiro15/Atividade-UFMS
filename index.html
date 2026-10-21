@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Documentos - MBernardes Advocacia</title>
+    <!-- Framework Bootstrap para interface responsiva -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Ícones do Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5 mb-5">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="bi bi-folder2-open me-2"></i>Controle de Documentos</h4>
+        </div>
+        <div class="card-body">
+            <!-- Formulário de Registro -->
+            <form id="formDocumento" class="row g-3 mb-4 p-3 bg-white border rounded">
+                <h6 class="text-primary mb-3"><i class="bi bi-plus-circle me-2"></i>Nova Solicitação</h6>
+                <div class="col-md-5">
+                    <label for="cliente" class="form-label text-muted small">Cliente / Atendimento</label>
+                    <input type="text" id="cliente" class="form-control" placeholder="Ex: João da Silva" required>
+                </div>
+                <div class="col-md-5">
+                    <label for="documento" class="form-label text-muted small">Documento Solicitado</label>
+                    <input type="text" id="documento" class="form-control" placeholder="Ex: Procuração assinada" required>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm">Registrar</button>
+                </div>
+            </form>
+
+            <hr class="text-muted">
+
+            <!-- Barra de Pesquisa e Cabeçalho da Lista -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-6">
+                    <h5 class="mb-0">Status da Documentação</h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" id="pesquisaCliente" class="form-control" placeholder="Pesquisar por cliente...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela de Acompanhamento -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle border">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente</th>
+                            <th>Documento</th>
+                            <th>Status</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listaDocumentos">
+                        <!-- Os dados cadastrados aparecerão aqui -->
+                    </tbody>
+                </table>
+                <!-- Mensagem de lista vazia -->
+                <div id="mensagemVazia" class="text-center text-muted p-4 d-none">
+                    <i class="bi bi-inbox fs-2"></i>
+                    <p class="mt-2 mb-0">Nenhum documento encontrado.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Gerenciamento de dados com localStorage
+    let documentos = JSON.parse(localStorage.getItem('docs_advocacia')) || [];
+    const formDocumento = document.getElementById('formDocumento');
+    const listaDocumentos = document.getElementById('listaDocumentos');
+    const inputPesquisa = document.getElementById('pesquisaCliente');
+    const mensagemVazia = document.getElementById('mensagemVazia');
+
+    // Função para formatar a data atual
+    function obterDataAtual() {
+        const hoje = new Date();
+        return hoje.toLocaleDateString('pt-BR');
+    }
+
+    // Função para exibir os dados na tela
+    function renderizarTabela(filtro = '') {
+        listaDocumentos.innerHTML = '';
+
+        // Filtra os documentos com base na pesquisa
+        const docsFiltrados = documentos.filter(doc => 
+            doc.cliente.toLowerCase().includes(filtro.toLowerCase())
+        );
+
+        if (docsFiltrados.length === 0) {
+            mensagemVazia.classList.remove('d-none');
+        } else {
+            mensagemVazia.classList.add('d-none');
+        }
+
+        docsFiltrados.forEach((doc) => {
+            const linha = document.createElement('tr');
+
+            // Definição visual baseada no status do documento
+            const classeBadge = doc.recebido ? 'bg-success' : 'bg-warning text-dark';
+            const textoStatus = doc.recebido ? 'Recebido' : 'Pendente';
+            const iconeBotao = doc.recebido ? '<i class="bi bi-arrow-counterclockwise"></i> Pendente' : '<i class="bi bi-check-circle"></i> Recebido';
+            const classeBotao = doc.recebido ? 'btn-outline-secondary' : 'btn-outline-success';
+
+            linha.innerHTML = `
+                <td class="text-muted small">${doc.data}</td>
+                <td class="fw-bold">${doc.cliente}</td>
+                <td>${doc.nomeDoc}</td>
+                <td><span class="badge ${classeBadge}">${textoStatus}</span></td>
+                <td class="text-center">
+                    <button class="btn btn-sm ${classeBotao} me-1 shadow-sm" onclick="alterarStatus(${doc.id})" title="Alterar Status">${iconeBotao}</button>
+                    <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="removerDocumento(${doc.id})" title="Excluir"><i class="bi bi-trash3"></i></button>
+                </td>
+            `;
+            listaDocumentos.appendChild(linha);
+        });
+    }
+
+    // Evento para salvar um novo documento
+    formDocumento.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const clienteInput = document.getElementById('cliente').value;
+        const documentoInput = document.getElementById('documento').value;
+
+        documentos.push({
+            id: Date.now(), // Cria um ID único baseado no timestamp
+            data: obterDataAtual(), // Salva a data da criação
+            cliente: clienteInput,
+            nomeDoc: documentoInput,
+            recebido: false // Inicia como pendente
+        });
+
+        atualizarBanco();
+        formDocumento.reset();
+        inputPesquisa.value = ''; // Limpa a pesquisa ao adicionar novo
+    });
+
+    // Evento de digitação na barra de pesquisa
+    inputPesquisa.addEventListener('input', function() {
+        renderizarTabela(this.value);
+    });
+
+    // Função para alterar o status encontrando pelo ID
+    function alterarStatus(id) {
+        const index = documentos.findIndex(doc => doc.id === id);
+        if (index !== -1) {
+            documentos[index].recebido = !documentos[index].recebido;
+            atualizarBanco();
+        }
+    }
+
+    // Função para deletar um documento encontrando pelo ID
+    function removerDocumento(id) {
+        const index = documentos.findIndex(doc => doc.id === id);
+        if (index !== -1) {
+            documentos.splice(index, 1);
+            atualizarBanco();
+        }
+    }
+
+    // Salva no navegador e atualiza a interface
+    function atualizarBanco() {
+        localStorage.setItem('docs_advocacia', JSON.stringify(documentos));
+        renderizarTabela(inputPesquisa.value); // Mantém o filtro atual ao atualizar
+    }
+
+    // Carrega a tabela ao abrir a aplicação
+    renderizarTabela();
+</script>
+
+</body>
+</html>
